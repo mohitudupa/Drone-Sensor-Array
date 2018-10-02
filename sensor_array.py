@@ -3,10 +3,13 @@ import time
 import os
 
 
-move = None
+# move = None
 
 
 class Sensor():
+    # This is a sensor object
+    # It takes echo and treshold pin numbers as arguments during init
+    # Treshold is an optional argument to tune the sensitivity of the sensor
     def __init__(self, echo, trigger, threshold=30):
         self.echo = echo
         self.trigger = trigger
@@ -21,6 +24,11 @@ class Sensor():
 
 
 class Direction():
+    # This is a direction object
+    # Multiple sensors can be facing the same direction
+    # It takes a direction vector and a direction id dufing init
+    # Direction vector is given in [i, j, k] format, id is a unique identifier for the direction
+    # Sensor objects are added to the direction object
     def __init__(self, vector, id):
         self.vector = vector
         self.id = id
@@ -31,6 +39,7 @@ class Direction():
         self.sensors.append(sensor)
 
     def sense_direction(self):
+        # Getting readings from all the sensors in this direction
         for sensor in self.sensors:
             self.distance = sensor.sense()
             if self.distance < sensor.threshold:
@@ -44,6 +53,11 @@ class Direction():
         return st
 
 class FreeDirection():
+    # This is a free direction object
+    # A free direction does not have any sensors facing that way
+    # Free directions will be a last resort choice for the collision avoidance prediction
+    # It takes a direction vector and a direction id dufing init
+    # Direction vector is given in [i, j, k] format, id is a unique identifier for the direction
     def __init__(self, vector, id):
         self.vector = vector
         self.id = id
@@ -52,6 +66,8 @@ class FreeDirection():
         return "Free direction: " + str(self.vector)
 
 class SensorArray():
+    # This is a sensor array object
+    # Direction and free direction objects are added to the sensor array object
     def __init__(self):
         self.directions = []
         self.free_directions = []
@@ -63,6 +79,7 @@ class SensorArray():
         self.free_directions.append(free_direction)
 
     def sense_array(self):
+        # Getting readings from all the sensors in all directions
         free, obstructed = [], []
         for direction in self.directions:
             distance = direction.sense_direction()
@@ -77,8 +94,8 @@ class SensorArray():
             print("Free to move in any direction")
 
     def respond(self, obstructed, free):
-        # Code to respond to the obstruction
-        # Obstructed may be used in te future
+        # Code to respond to the obstruction (by picking a collision free direction)
+        # Obstructed list may be used in te future
 
         global move
         if free:
@@ -106,42 +123,3 @@ class SensorArray():
         for free_direction in self.free_directions:
             st += str(free_direction) + "\n"
         return st
-
-
-def main():
-    sa = SensorArray()
-
-    directions = [
-        Direction([1, 0, 0], 0),
-        Direction([0, 0, 1], 1),
-        Direction([-1, 0, 0], 2),
-        Direction([0, 0, -1], 3),
-    ]
-    free_directions = [
-        FreeDirection([0, 1, 0], 4),
-        FreeDirection([0, -1, 0], 5),
-    ]
-
-    for j in range(4):
-        for i in range(4):
-            directions[j].add_sensor(Sensor((4 * j) + i, (4 * j) + i + 4))
-
-    for direction in directions:
-        sa.add_direction(direction)
-
-    for free_direction in free_directions:
-        sa.add_free_direction(free_direction)
-
-    print(sa)
-
-    while(1):
-        sa.sense_array()
-        print("-" * 159)
-        time.sleep(1)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Good Bye....")
