@@ -30,7 +30,7 @@ def main():
 
     print(sa)
 
-    while(1):
+    while True:
         sa.sense_array()
         print("-" * 159)
         time.sleep(1)
