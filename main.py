@@ -1,4 +1,5 @@
 from sensor_array import *
+import os
 
 
 move = None
@@ -32,7 +33,7 @@ def main():
 
     while True:
         sa.sense_array()
-        print("-" * 159)
+        print("-" * os.get_terminal_size()[0])
         time.sleep(1)
 
 
