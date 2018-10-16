@@ -1,10 +1,10 @@
 import random
 import time
 import os
+from math import radians, cos, sin, asin, sqrt
 
 
 # move = None
-
 
 class Sensor():
     # This is a sensor object
@@ -108,10 +108,63 @@ class SensorArray():
 
         # Send an interrupt signal to main thread
 
+
+    def delete_history():
+        #reset history on reaching a new waypoint
+        global history
+        #code to upload history of previous way point to cloud
+        #reset history
+        history = {}
+
+    def point_exists(lon2, lat2):
+        global history
+        #threshold is resolution of haversine
+        #lon and lat in format of dd.mmmmmm or dd.mmmmss for east and north and negative dd.mmmmmm or dd.mmmmss  values for west and south
+        threshold = 50
+        for geopoint in history:
+            lon1, lat1 = geopoint[0], geopoint[1]
+            lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+            # haversine formula
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(a))
+            r = 6372.8 # Radius of earth in kilometers. Use 3956 for miles
+            distance = c * r * 1000
+            if distance < threshold:
+                return geopoint
+        return False
+
+
+    def respond_history(self, obstructed, free, lon, lat):
+        global history
+        geopoint = point_exists(lon, lat)
+        if geopoint:
+            for i in free:
+                if i not in history[geopoint]:
+                    history[geopoint].append(i)
+                    move = i
+                    break
+
+            if history[geopoint][0] == 2:
+                move = obstructed[0]
+            else:
+                history[geopoint][0]=2
+                move = random.sample(free, 1)[0]
+        else:
+            move = random.sample(free,1)[0]
+            history[(lon, lat)] = [1,move]
+
+        self.pretty_print(obstructed, move)
+
+
+
+
     def pretty_print(self, obstructed, move):
         # os.system("cls")
         for direction in obstructed:
-            print("Object detected. Direction:", direction.vector, ", ID:", direction.id, 
+            print("Object detected. Direction:", direction.vector, ", ID:", direction.id,
                 ", Distance:", direction.distance)
 
         print("Move in direction:", move.vector, "- ID:", move.id)

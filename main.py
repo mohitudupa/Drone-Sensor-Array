@@ -3,7 +3,7 @@ import os
 
 
 move = None
-
+history = {}
 
 def main():
     sa = SensorArray()
