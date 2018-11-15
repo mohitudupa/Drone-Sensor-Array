@@ -116,14 +116,17 @@ class SensorArray():
         #reset history
         history = {}
 
-    def point_exists(lon2, lat2):
+    def point_exists(lon2, lat2, alt2):
         global history
         #threshold is resolution of haversine
         #lon and lat in format of dd.mmmmmm or dd.mmmmss for east and north and negative dd.mmmmmm or dd.mmmmss  values for west and south
-        threshold = 50
+        threshold = 10
         for geopoint in history:
-            lon1, lat1 = geopoint[0], geopoint[1]
+            lon1, lat1, alt1 = geopoint[0], geopoint[1], geopoint[2]
             lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+            #altitude based Calculation
+            if (lat1, lon1) == (lat2, lon2) and abs(alt1 - alt2) < threshold:
+                return geopoint
 
             # haversine formula
             dlon = lon2 - lon1
@@ -137,24 +140,16 @@ class SensorArray():
         return False
 
 
-    def respond_history(self, obstructed, free, lon, lat):
+    def respond_history(self, obstructed, free, lon, lat, alt):
         global history
-        geopoint = point_exists(lon, lat)
+        geopoint = point_exists(lon, lat, alt)
         if geopoint:
-            for i in free:
-                if i not in history[geopoint]:
-                    history[geopoint].append(i)
-                    move = i
-                    break
-
-            if history[geopoint][0] == 2:
-                move = obstructed[0]
-            else:
-                history[geopoint][0]=2
-                move = random.sample(free, 1)[0]
+            moves = free - history[geopoint] or free
+            move = random.sample(moves, 1)[0]
+            history[geopoint].add(move)
         else:
             move = random.sample(free,1)[0]
-            history[(lon, lat)] = [1,move]
+            history[(lon, lat, alt)] = set(move)
 
         self.pretty_print(obstructed, move)
 
