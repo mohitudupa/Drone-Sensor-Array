@@ -1,5 +1,34 @@
+import threading, time, signal
 from sensor_array import *
-import threading, time
+# import import RPi.GPIO as GPIO
+
+
+# GPIO.setmode(GPIO.BCM)
+
+
+def set_trigger_pins(pins):
+    for pin in pins:
+        GPIO.setup(pin, GPIO.OUT)
+
+
+def set_echo_pins(pins):
+    for pin in pins:
+        GPIO.setup(pin, GPIO.IN)
+
+
+drone = None
+
+
+def handle_signal(signum, frame):
+    global drone
+    for index, axis in enumerate(drone.response_move):
+       drone.current[index] = round(drone.current[index] + 0.00001 * axis, 5)
+    # This line causes a bug related to renterant tasks...
+    # This line of code is for experimentation purposes only and will not be included in the final build 
+    print("Current position:", drone.current)
+
+
+signal.signal(signal.SIGUSR1, handle_signal)
 
 
 class Drone:
@@ -8,34 +37,26 @@ class Drone:
         self.end = end
         self.current = start
         self.travelling = True
-        self.lock = threading.Lock()
+        self.response_move = None
 
     def get_location(self):
         return tuple(self.current)
 
-    def respond(self, move):
-        self.lock.acquire()
-        for index, axis in enumerate(move):
-            self.current[index] += 0.00001 * axis
-        print(self.current)
-        self.lock.release()
-
     def move(self):
         while self.current != self.end:
-            self.lock.acquire()
             for index, attr in enumerate(zip(self.current, self.end)):
                 if attr[0] < attr[1]:
                     self.current[index] = round(self.current[index] + 0.00001, 5)
                 if attr[0] > attr[1]:
                     self.current[index] = round(self.current[index] - 0.00001, 5)
-            print(self.current)
-            self.lock.release()
+            print("Current position:", self.current)
             time.sleep(1)
         self.travelling = False
         print("Reached destination")
 
 
 def main():
+    global drone
     start = [12.29053, 76.64510, 10.00000]
     end = [12.29060, 76.64520, 10.00000]
 
@@ -63,7 +84,15 @@ def main():
     t = threading.Thread(target=sa.start_session)
     t.start()
 
+    time.sleep(0.2)
     drone.move()
 
 
-main()
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt as ke:
+        print("Goodbye....")
+    finally:
+        # GPIO.cleanup()
+        pass

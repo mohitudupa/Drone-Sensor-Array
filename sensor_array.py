@@ -1,7 +1,4 @@
-import random
-import time
-import os
-import signal
+import random, time, os, signal, hcsr04
 
 
 class Sensor():
@@ -15,6 +12,7 @@ class Sensor():
 
     def sense(self):
         # Code to read data from the sensor
+        # return hcsr04.distance(trigger, echo)
         return random.randrange(0, 400)
 
 
@@ -28,7 +26,6 @@ class Direction():
         self.vector = tuple(vector)
         self.id = id
         self.sensors = []
-        self.distance = 400
 
     def add_sensor(self, sensor):
         self.sensors.append(sensor)
@@ -36,8 +33,7 @@ class Direction():
     def sense_direction(self):
         # Getting readings from all the sensors in this direction
         for sensor in self.sensors:
-            self.distance = sensor.sense()
-            if self.distance < sensor.threshold:
+            if sensor.sense() < sensor.threshold:
                 return True
         return False
 
@@ -54,9 +50,6 @@ class SensorArray():
     def add_direction(self, direction):
         self.directions.append(direction)
 
-    def add_free_direction(self, free_direction):
-        self.free_directions.append(free_direction)
-
     def get_direction(self, directions):
         geopoint = self.drone.get_location()
 
@@ -67,7 +60,6 @@ class SensorArray():
         else:
             move = random.sample(directions, 1)[0]
             self.geopoint_history[geopoint] = {move, }
-
         print("Obstruction Detected.... Moving in direction:", move)
 
         return move
@@ -83,8 +75,8 @@ class SensorArray():
         # Getting readings from all the sensors in all directions
         free, obstructed = [], []
         for direction in self.directions:
-            distance = direction.sense_direction()
-            if distance:
+            obstruction = direction.sense_direction()
+            if obstruction:
                 obstructed.append(direction.vector)
             else:
                 free.append(direction.vector)
@@ -94,13 +86,13 @@ class SensorArray():
     def respond(self, obstructed, free):
         # Code to respond to the obstruction (by picking a collision free direction)
         # Obstructed list may be used in te future
-
         global move
         if free:
             move = self.get_direction(set(free))
         elif self.free_directions:
             move = self.get_direction(set(self.free_directions))
         else:
-            move = obstructed[0]
+            move = obstructed[0].vecctor
 
-        self.drone.respond(move)
+        self.drone.response_move = move
+        os.kill(os.getpid(), signal.SIGUSR1)
