@@ -61,13 +61,16 @@ def main():
     end = [12.29060, 76.64520, 10.00000]
 
     drone = Drone(start, end)
-    sa = SensorArray(drone)
+    sa = SensorArray(drone, Direction([0, 0, 0], -1))
 
     directions = [
         Direction([1, 0, 0], 0),
         Direction([0, 0, 1], 1),
         Direction([-1, 0, 0], 2),
         Direction([0, 0, -1], 3),
+    ]
+
+    free_directions = [
         Direction([0, 1, 0], 4),
         Direction([0, -1, 0], 5),
     ]
@@ -81,10 +84,12 @@ def main():
     for direction in directions:
         sa.add_direction(direction)
 
-    t = threading.Thread(target=sa.start_session)
-    t.start()
+    for free_direction in free_directions:
+        sa.add_free_direction(free_direction)
 
-    time.sleep(0.2)
+    threading.Thread(target=sa.start_session).start()
+
+    time.sleep(0.5)
     drone.move()
 
 

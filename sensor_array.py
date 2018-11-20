@@ -1,4 +1,4 @@
-import random, time, os, signal, hcsr04
+import random, time, os, signal, hcsr04, operator
 
 
 class Sensor():
@@ -26,43 +26,38 @@ class Direction():
         self.vector = tuple(vector)
         self.id = id
         self.sensors = []
+        self.distance = 999
 
     def add_sensor(self, sensor):
         self.sensors.append(sensor)
 
     def sense_direction(self):
         # Getting readings from all the sensors in this direction
+        self.distance = 999
         for sensor in self.sensors:
-            if sensor.sense() < sensor.threshold:
-                return True
+            d = sensor.sense()
+            if d < self.distance:
+                self.distance = d
+                if d < sensor.threshold:
+                    return True
         return False
 
 
 class SensorArray():
     # This is a sensor array object
     # Direction and free direction objects are added to the sensor array object
-    def __init__(self, drone):
-        self.directions = []
-        self.free_directions = []
+    def __init__(self, drone, default_direction):
+        self.directions = set()
+        self.free_directions = set()
         self.geopoint_history = {}
         self.drone = drone
+        self.default_direction = [default_direction]
 
     def add_direction(self, direction):
-        self.directions.append(direction)
+        self.directions.add(direction)
 
-    def get_direction(self, directions):
-        geopoint = self.drone.get_location()
-
-        if geopoint in self.geopoint_history:
-            moves = directions - self.geopoint_history[geopoint] or directions
-            move = random.sample(moves, 1)[0]
-            self.geopoint_history[geopoint].add(move)
-        else:
-            move = random.sample(directions, 1)[0]
-            self.geopoint_history[geopoint] = {move, }
-        print("Obstruction Detected.... Moving in direction:", move)
-
-        return move
+    def add_free_direction(self, free_direction):
+        self.free_directions.add(free_direction)
 
     def start_session(self):
         print("Running drone sensor systems")
@@ -73,26 +68,40 @@ class SensorArray():
 
     def sense_array(self):
         # Getting readings from all the sensors in all directions
-        free, obstructed = [], []
+        free = []
         for direction in self.directions:
             obstruction = direction.sense_direction()
-            if obstruction:
-                obstructed.append(direction.vector)
-            else:
-                free.append(direction.vector)
-        if obstructed:
-            self.respond(obstructed, free)
+            if not obstruction:
+                free.append(direction)
+        if len(free) != len(self.directions):
+            self.respond(set(free))
 
-    def respond(self, obstructed, free):
-        # Code to respond to the obstruction (by picking a collision free direction)
-        # Obstructed list may be used in te future
-        global move
-        if free:
-            move = self.get_direction(set(free))
-        elif self.free_directions:
-            move = self.get_direction(set(self.free_directions))
+    def action_type(self, directions, geopoint):
+        if directions - self.geopoint_history[geopoint]:
+            action_type = "Unknown"
+        elif directions:
+            action_type = "Known"
+        elif self.free_directions - self.geopoint_history[geopoint]:
+            action_type = "Free"
         else:
-            move = obstructed[0].vecctor
+            action_type = "Default"
 
-        self.drone.response_move = move
+        return action_type
+
+    def respond(self, directions):
+        geopoint = self.drone.get_location()
+
+        if geopoint not in self.geopoint_history:
+            self.geopoint_history[geopoint] = set()
+
+        action_type = self.action_type(directions, geopoint)
+
+        moves = directions - self.geopoint_history[geopoint] or directions or \
+                self.free_directions - self.geopoint_history[geopoint] or self.default_direction
+        move = sorted(moves, key=operator.attrgetter("distance"))[-1]
+        self.geopoint_history[geopoint].add(move)
+
+        print("Obstruction Detected.... Moving in direction:", move.vector, "Action type: ", action_type)
+
+        self.drone.response_move = move.vector
         os.kill(os.getpid(), signal.SIGUSR1)
